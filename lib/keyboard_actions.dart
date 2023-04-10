@@ -86,20 +86,26 @@ class KeyboardActions extends StatefulWidget {
   /// Does not clear the focus if you tap on the node focused, useful for keeping the text cursor selection working. Usually used with tapOutsideBehavior as translucent
   final bool keepFocusOnTappingNode;
 
-  const KeyboardActions(
-      {this.child,
-      this.bottomAvoiderScrollPhysics,
-      this.enable = true,
-      this.autoScroll = true,
-      this.isDialog = false,
-      @Deprecated('Use tapOutsideBehavior instead.')
-          this.tapOutsideToDismiss = false,
-      this.tapOutsideBehavior = TapOutsideBehavior.none,
-      required this.config,
-      this.overscroll = 12.0,
-      this.disableScroll = false,
-      this.keepFocusOnTappingNode = false})
-      : assert(child != null);
+  final Set<FocusNode> currentNodes;
+
+  final VoidCallback? onFocusCleared;
+
+  const KeyboardActions({
+    this.child,
+    this.bottomAvoiderScrollPhysics,
+    this.enable = true,
+    this.autoScroll = true,
+    this.isDialog = false,
+    @Deprecated('Use tapOutsideBehavior instead.')
+        this.tapOutsideToDismiss = false,
+    this.tapOutsideBehavior = TapOutsideBehavior.none,
+    required this.config,
+    this.overscroll = 12.0,
+    this.disableScroll = false,
+    this.keepFocusOnTappingNode = false,
+    required this.currentNodes,
+    this.onFocusCleared,
+  }) : assert(child != null);
 
   @override
   KeyboardActionstate createState() => KeyboardActionstate();
@@ -193,6 +199,7 @@ class KeyboardActionstate extends State<KeyboardActions>
 
   void _clearFocus() {
     _currentAction?.focusNode.unfocus();
+    widget.onFocusCleared?.call();
   }
 
   Future<Null> _focusNodeListener() async {
@@ -327,7 +334,6 @@ class KeyboardActionstate extends State<KeyboardActions>
           ? _currentAction!.footerBuilder!(context)
           : null;
 
-      final queryData = MediaQuery.of(context);
       return Stack(
         children: [
           if (widget.tapOutsideBehavior != TapOutsideBehavior.none ||
@@ -337,7 +343,8 @@ class KeyboardActionstate extends State<KeyboardActions>
               child: Listener(
                 onPointerDown: (event) {
                   if (!widget.keepFocusOnTappingNode ||
-                      _currentAction?.focusNode.rect.contains(event.position) !=
+                      widget.currentNodes.any((focusNode) =>
+                              focusNode.rect.contains(event.position)) !=
                           true) {
                     _clearFocus();
                   }
@@ -351,7 +358,7 @@ class KeyboardActionstate extends State<KeyboardActions>
           Positioned(
             left: 0,
             right: 0,
-            bottom: queryData.viewInsets.bottom,
+            bottom: 0,
             child: Material(
               color: config!.keyboardBarColor ?? Colors.grey[200],
               elevation: config!.keyboardBarElevation ?? 20,
