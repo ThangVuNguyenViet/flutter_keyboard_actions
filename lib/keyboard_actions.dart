@@ -103,7 +103,7 @@ class KeyboardActions extends StatefulWidget {
     this.overscroll = 12.0,
     this.disableScroll = false,
     this.keepFocusOnTappingNode = false,
-    required this.currentNodes,
+    this.currentNodes = const {},
     this.onFocusCleared,
   }) : assert(child != null);
 
