@@ -13,7 +13,6 @@ export 'keyboard_actions_item.dart';
 export 'keyboard_custom.dart';
 
 const double _kBarSize = 45.0;
-const Duration _timeToDismiss = Duration(milliseconds: 110);
 
 enum KeyboardActionsPlatform {
   ANDROID,
@@ -88,7 +87,13 @@ class KeyboardActions extends StatefulWidget {
 
   final Set<FocusNode> currentNodes;
 
+  final bool isGlobalKeyboardActive;
+
   final VoidCallback? onFocusCleared;
+
+  final Duration timeToDismiss;
+
+  final ValueChanged<double>? onSizeChanged;
 
   const KeyboardActions({
     this.child,
@@ -104,7 +109,10 @@ class KeyboardActions extends StatefulWidget {
     this.disableScroll = false,
     this.keepFocusOnTappingNode = false,
     this.currentNodes = const {},
+    this.isGlobalKeyboardActive = false,
     this.onFocusCleared,
+    this.timeToDismiss = const Duration(milliseconds: 500),
+    this.onSizeChanged,
   }) : assert(child != null);
 
   @override
@@ -113,7 +121,14 @@ class KeyboardActions extends StatefulWidget {
 
 /// State class for [KeyboardActions].
 class KeyboardActionstate extends State<KeyboardActions>
-    with WidgetsBindingObserver {
+    with WidgetsBindingObserver, SingleTickerProviderStateMixin {
+  late final _animationController =
+      AnimationController(vsync: this, duration: widget.timeToDismiss);
+
+  late final _slideAnimation =
+      Tween<Offset>(begin: Offset(0, 1), end: Offset.zero).animate(
+          CurvedAnimation(parent: _animationController, curve: Curves.easeIn));
+
   /// The currently configured keyboard actions
   KeyboardActionsConfig? config;
 
@@ -234,7 +249,7 @@ class KeyboardActionstate extends State<KeyboardActions>
     //if it is a custom keyboard then wait until the focus was dismissed from the others
     if (_currentAction!.footerBuilder != null) {
       await Future.delayed(
-        Duration(milliseconds: _timeToDismiss.inMilliseconds),
+        Duration(milliseconds: widget.timeToDismiss.inMilliseconds),
       );
     }
 
@@ -318,8 +333,6 @@ class KeyboardActionstate extends State<KeyboardActions>
         (action) => action.focusNode.removeListener(_focusNodeListener));
   }
 
-  bool _inserted = false;
-
   /// Insert the keyboard bar as an Overlay.
   ///
   /// This will be inserted above everything else in the MaterialApp, including dialog modals.
@@ -327,7 +340,7 @@ class KeyboardActionstate extends State<KeyboardActions>
   /// Position the overlay based on the current [MediaQuery] to land above the keyboard.
   void _insertOverlay() {
     OverlayState os = Overlay.of(context);
-    _inserted = true;
+
     _overlayEntry = OverlayEntry(builder: (context) {
       // Update and build footer, if any
       _currentFooter = (_currentAction!.footerBuilder != null)
@@ -359,22 +372,23 @@ class KeyboardActionstate extends State<KeyboardActions>
             left: 0,
             right: 0,
             bottom: 0,
-            child: Material(
-              color: config!.keyboardBarColor ?? Colors.grey[200],
-              elevation: config!.keyboardBarElevation ?? 20,
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: <Widget>[
-                  if (_currentAction!.displayActionBar)
-                    _buildBar(_currentAction!.displayArrows),
-                  if (_currentFooter != null)
-                    AnimatedContainer(
-                      duration: _timeToDismiss,
-                      child: _currentFooter,
-                      height:
-                          _inserted ? _currentFooter!.preferredSize.height : 0,
-                    ),
-                ],
+            child: SlideTransition(
+              position: _slideAnimation,
+              child: Material(
+                color: config!.keyboardBarColor ?? Colors.grey[200],
+                elevation: config!.keyboardBarElevation ?? 20,
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: <Widget>[
+                    if (_currentAction!.displayActionBar)
+                      _buildBar(_currentAction!.displayArrows),
+                    if (_currentFooter != null)
+                      SizedBox(
+                        height: _currentFooter!.preferredSize.height,
+                        child: _currentFooter,
+                      ),
+                  ],
+                ),
               ),
             ),
           ),
@@ -386,13 +400,12 @@ class KeyboardActionstate extends State<KeyboardActions>
 
   /// Remove the overlay bar. Call when losing focus or being dismissed.
   void _removeOverlay({bool fromDispose = false}) async {
-    _inserted = false;
     if (_currentFooter != null && _dismissAnimationNeeded) {
       if (mounted && !fromDispose) {
         _overlayEntry?.markNeedsBuild();
         // add a completer to indicate the completion of dismiss animation.
         _dismissAnimation = Completer<void>();
-        await Future.delayed(_timeToDismiss);
+        await Future.delayed(widget.timeToDismiss);
         _dismissAnimation?.complete();
         _dismissAnimation = null;
       }
@@ -470,6 +483,14 @@ class KeyboardActionstate extends State<KeyboardActions>
   @override
   void didUpdateWidget(KeyboardActions oldWidget) {
     if (widget.enable) setConfig(widget.config);
+
+    if (widget.isGlobalKeyboardActive &&
+        oldWidget.isGlobalKeyboardActive != widget.isGlobalKeyboardActive) {
+      if (_animationController.isDismissed) _animationController.forward();
+    } else if (!widget.isGlobalKeyboardActive &&
+        oldWidget.isGlobalKeyboardActive != widget.isGlobalKeyboardActive) {
+      if (_animationController.isCompleted) _animationController.reverse();
+    }
     super.didUpdateWidget(oldWidget);
   }
 
@@ -483,6 +504,10 @@ class KeyboardActionstate extends State<KeyboardActions>
 
   @override
   void initState() {
+    _animationController.addListener(() {
+      widget.onSizeChanged?.call(_animationController.value);
+    });
+
     WidgetsBinding.instance.addObserver(this);
     if (widget.enable) {
       setConfig(widget.config);
@@ -511,7 +536,7 @@ class KeyboardActionstate extends State<KeyboardActions>
   /// Build the keyboard action bar based on the current [config].
   Widget _buildBar(bool displayArrows) {
     return AnimatedCrossFade(
-      duration: _timeToDismiss,
+      duration: widget.timeToDismiss,
       crossFadeState:
           _isShowing ? CrossFadeState.showFirst : CrossFadeState.showSecond,
       firstChild: Container(
@@ -617,7 +642,7 @@ class KeyboardActionstate extends State<KeyboardActions>
                 overscroll: widget.overscroll,
                 duration: Duration(
                     milliseconds:
-                        (_timeToDismiss.inMilliseconds * 1.8).toInt()),
+                        (widget.timeToDismiss.inMilliseconds * 1.8).toInt()),
                 autoScroll: widget.autoScroll,
                 physics: widget.bottomAvoiderScrollPhysics,
                 child: widget.child,
