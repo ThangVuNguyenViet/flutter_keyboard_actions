@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:ui';
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
@@ -89,8 +90,6 @@ class KeyboardActions extends StatefulWidget {
 
   final bool isGlobalKeyboardActive;
 
-  final VoidCallback? onFocusCleared;
-
   final Duration timeToDismiss;
 
   final ValueChanged<double>? onSizeChanged;
@@ -102,7 +101,7 @@ class KeyboardActions extends StatefulWidget {
     this.autoScroll = true,
     this.isDialog = false,
     @Deprecated('Use tapOutsideBehavior instead.')
-        this.tapOutsideToDismiss = false,
+    this.tapOutsideToDismiss = false,
     this.tapOutsideBehavior = TapOutsideBehavior.none,
     required this.config,
     this.overscroll = 12.0,
@@ -110,7 +109,6 @@ class KeyboardActions extends StatefulWidget {
     this.keepFocusOnTappingNode = false,
     this.currentNodes = const {},
     this.isGlobalKeyboardActive = false,
-    this.onFocusCleared,
     this.timeToDismiss = const Duration(milliseconds: 500),
     this.onSizeChanged,
   }) : assert(child != null);
@@ -127,7 +125,7 @@ class KeyboardActionstate extends State<KeyboardActions>
 
   late final _slideAnimation =
       Tween<Offset>(begin: Offset(0, 1), end: Offset.zero).animate(
-          CurvedAnimation(parent: _animationController, curve: Curves.easeIn));
+          CurvedAnimation(parent: _animationController, curve: Curves.linear));
 
   /// The currently configured keyboard actions
   KeyboardActionsConfig? config;
@@ -214,7 +212,6 @@ class KeyboardActionstate extends State<KeyboardActions>
 
   void _clearFocus() {
     _currentAction?.focusNode.unfocus();
-    widget.onFocusCleared?.call();
   }
 
   Future<Null> _focusNodeListener() async {
@@ -312,7 +309,7 @@ class KeyboardActionstate extends State<KeyboardActions>
   @override
   void didChangeMetrics() {
     if (PlatformCheck.isAndroid) {
-      final value = WidgetsBinding.instance.window.viewInsets.bottom;
+      final value = PlatformDispatcher.instance.views.first.viewInsets.bottom;
       bool keyboardIsOpen = value > 0;
       _onKeyboardChanged(keyboardIsOpen);
       isKeyboardOpen = keyboardIsOpen;
@@ -433,9 +430,9 @@ class KeyboardActionstate extends State<KeyboardActions>
         ? _kBarSize
         : 0; // offset for the actions bar
 
-    final keyboardHeight = EdgeInsets.fromWindowPadding(
-            WidgetsBinding.instance.window.viewInsets,
-            WidgetsBinding.instance.window.devicePixelRatio)
+    final keyboardHeight = EdgeInsets.fromViewPadding(
+            PlatformDispatcher.instance.views.first.viewInsets,
+            PlatformDispatcher.instance.views.first.devicePixelRatio)
         .bottom;
 
     newOffset += keyboardHeight; // + offset for the system keyboard
@@ -499,6 +496,8 @@ class KeyboardActionstate extends State<KeyboardActions>
     clearConfig();
     _removeOverlay(fromDispose: true);
     WidgetsBinding.instance.removeObserver(this);
+    widget.onSizeChanged?.call(0);
+    _animationController.dispose();
     super.dispose();
   }
 

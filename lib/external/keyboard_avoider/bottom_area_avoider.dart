@@ -178,9 +178,7 @@ RenderObject? findFocusedObject(RenderObject? root) {
     if (config.isFocused) {
       return node;
     }
-    node.visitChildrenForSemantics((child) {
-      q.add(child);
-    });
+    node.visitChildrenForSemantics(q.add);
   }
   return null;
 }
