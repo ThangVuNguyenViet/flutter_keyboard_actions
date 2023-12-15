@@ -175,7 +175,7 @@ class KeyboardActionstate extends State<KeyboardActions>
     if (_keyParent.currentContext != null) {
       final widgetRenderBox =
           _keyParent.currentContext!.findRenderObject() as RenderBox;
-      final fullHeight = MediaQuery.of(context).size.height;
+      final fullHeight = MediaQuery.sizeOf(context).height;
       final widgetHeight = widgetRenderBox.size.height;
       final widgetTop = widgetRenderBox.localToGlobal(Offset.zero).dy;
       final widgetBottom = widgetTop + widgetHeight;
@@ -212,6 +212,9 @@ class KeyboardActionstate extends State<KeyboardActions>
 
   void _clearFocus() {
     _currentAction?.focusNode.unfocus();
+    // [focusNode] loses focus and doesn't automatically notify listeners.
+    // We need to manually notify listeners here.
+    _currentAction?.focusNode.notifyListeners();
   }
 
   Future<Null> _focusNodeListener() async {
@@ -460,7 +463,7 @@ class KeyboardActionstate extends State<KeyboardActions>
     if (widget.isDialog) {
       final render =
           _keyParent.currentContext?.findRenderObject() as RenderBox?;
-      final fullHeight = MediaQuery.of(context).size.height;
+      final fullHeight = MediaQuery.sizeOf(context).height;
       final localHeight = render?.size.height ?? 0;
       _localMargin = (fullHeight - localHeight) / 2;
     }
@@ -494,6 +497,7 @@ class KeyboardActionstate extends State<KeyboardActions>
   @override
   void dispose() {
     clearConfig();
+    _clearFocus();
     _removeOverlay(fromDispose: true);
     WidgetsBinding.instance.removeObserver(this);
     widget.onSizeChanged?.call(0);
@@ -540,7 +544,7 @@ class KeyboardActionstate extends State<KeyboardActions>
           _isShowing ? CrossFadeState.showFirst : CrossFadeState.showSecond,
       firstChild: Container(
         height: _kBarSize,
-        width: MediaQuery.of(context).size.width,
+        width: MediaQuery.sizeOf(context).width,
         decoration: BoxDecoration(
           border: Border(
             top: BorderSide(
