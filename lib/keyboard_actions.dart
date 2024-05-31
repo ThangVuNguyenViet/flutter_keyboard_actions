@@ -94,6 +94,9 @@ class KeyboardActions extends StatefulWidget {
 
   final ValueChanged<double>? onSizeChanged;
 
+  /// Override default height of the bar. `null` is dynamic height
+  final double? barSize;
+
   const KeyboardActions({
     this.child,
     this.bottomAvoiderScrollPhysics,
@@ -107,6 +110,7 @@ class KeyboardActions extends StatefulWidget {
     this.overscroll = 12.0,
     this.disableScroll = false,
     this.keepFocusOnTappingNode = false,
+    this.barSize = _kBarSize,
     this.currentNodes = const {},
     this.isGlobalKeyboardActive = false,
     this.timeToDismiss = const Duration(milliseconds: 500),
@@ -543,7 +547,7 @@ class KeyboardActionstate extends State<KeyboardActions>
       crossFadeState:
           _isShowing ? CrossFadeState.showFirst : CrossFadeState.showSecond,
       firstChild: Container(
-        height: _kBarSize,
+        height: widget.barSize,
         width: MediaQuery.sizeOf(context).width,
         decoration: BoxDecoration(
           border: Border(
