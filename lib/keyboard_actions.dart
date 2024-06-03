@@ -337,6 +337,8 @@ class KeyboardActionstate extends State<KeyboardActions>
         (action) => action.focusNode.removeListener(_focusNodeListener));
   }
 
+  bool _inserted = false;
+
   /// Insert the keyboard bar as an Overlay.
   ///
   /// This will be inserted above everything else in the MaterialApp, including dialog modals.
@@ -344,13 +346,14 @@ class KeyboardActionstate extends State<KeyboardActions>
   /// Position the overlay based on the current [MediaQuery] to land above the keyboard.
   void _insertOverlay() {
     OverlayState os = Overlay.of(context);
-
+    _inserted = true;
     _overlayEntry = OverlayEntry(builder: (context) {
       // Update and build footer, if any
       _currentFooter = (_currentAction!.footerBuilder != null)
           ? _currentAction!.footerBuilder!(context)
           : null;
 
+      final queryData = MediaQuery.of(context);
       return Stack(
         children: [
           if (widget.tapOutsideBehavior != TapOutsideBehavior.none ||
@@ -375,24 +378,26 @@ class KeyboardActionstate extends State<KeyboardActions>
           Positioned(
             left: 0,
             right: 0,
-            bottom: 0,
-            child: SlideTransition(
-              position: _slideAnimation,
-              child: Material(
-                color: config!.keyboardBarColor ?? Colors.grey[200],
-                elevation: config!.keyboardBarElevation ?? 20,
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: <Widget>[
-                    if (_currentAction!.displayActionBar)
-                      _buildBar(_currentAction!.displayArrows),
-                    if (_currentFooter != null)
-                      SizedBox(
-                        height: _currentFooter!.preferredSize.height,
+            bottom: queryData.viewInsets.bottom - (widget.barSize ?? _kBarSize),
+            child: Material(
+              color: config!.keyboardBarColor ?? Colors.grey[200],
+              elevation: config!.keyboardBarElevation ?? 20,
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: <Widget>[
+                  if (_currentAction!.displayActionBar)
+                    _buildBar(_currentAction!.displayArrows),
+                  if (_currentFooter != null)
+                    SlideTransition(
+                      position: _slideAnimation,
+                      child: SizedBox(
                         child: _currentFooter,
+                        height: _inserted
+                            ? _currentFooter!.preferredSize.height
+                            : 0,
                       ),
-                  ],
-                ),
+                    ),
+                ],
               ),
             ),
           ),
@@ -404,6 +409,7 @@ class KeyboardActionstate extends State<KeyboardActions>
 
   /// Remove the overlay bar. Call when losing focus or being dismissed.
   void _removeOverlay({bool fromDispose = false}) async {
+    _inserted = false;
     if (_currentFooter != null && _dismissAnimationNeeded) {
       if (mounted && !fromDispose) {
         _overlayEntry?.markNeedsBuild();
@@ -437,9 +443,9 @@ class KeyboardActionstate extends State<KeyboardActions>
         ? _kBarSize
         : 0; // offset for the actions bar
 
-    final keyboardHeight = EdgeInsets.fromViewPadding(
-            PlatformDispatcher.instance.implicitView!.viewInsets,
-            PlatformDispatcher.instance.implicitView!.devicePixelRatio)
+    final keyboardHeight = EdgeInsets.fromWindowPadding(
+            WidgetsBinding.instance.window.viewInsets,
+            WidgetsBinding.instance.window.devicePixelRatio)
         .bottom;
 
     newOffset += keyboardHeight; // + offset for the system keyboard
