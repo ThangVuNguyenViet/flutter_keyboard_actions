@@ -353,7 +353,7 @@ class KeyboardActionstate extends State<KeyboardActions>
           ? _currentAction!.footerBuilder!(context)
           : null;
 
-      final queryData = MediaQuery.of(context);
+      final viewInsetsBottom = MediaQuery.viewInsetsOf(context).bottom;
       return Stack(
         children: [
           if (widget.tapOutsideBehavior != TapOutsideBehavior.none ||
@@ -378,26 +378,26 @@ class KeyboardActionstate extends State<KeyboardActions>
           Positioned(
             left: 0,
             right: 0,
-            bottom: queryData.viewInsets.bottom - (widget.barSize ?? _kBarSize),
-            child: Material(
-              color: config!.keyboardBarColor ?? Colors.grey[200],
-              elevation: config!.keyboardBarElevation ?? 20,
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: <Widget>[
-                  if (_currentAction!.displayActionBar)
-                    _buildBar(_currentAction!.displayArrows),
-                  if (_currentFooter != null)
-                    SlideTransition(
-                      position: _slideAnimation,
-                      child: SizedBox(
+            bottom: _currentFooter == null ? viewInsetsBottom : 0,
+            child: SlideTransition(
+              position: _slideAnimation,
+              child: Material(
+                color: config!.keyboardBarColor ?? Colors.grey[200],
+                elevation: config!.keyboardBarElevation ?? 20,
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: <Widget>[
+                    if (_currentAction!.displayActionBar)
+                      _buildBar(_currentAction!.displayArrows),
+                    if (_currentFooter != null)
+                      SizedBox(
                         child: _currentFooter,
                         height: _inserted
                             ? _currentFooter!.preferredSize.height
                             : 0,
-                      ),
-                    ),
-                ],
+                      )
+                  ],
+                ),
               ),
             ),
           ),
